@@ -17,7 +17,7 @@ class UIntX
         UIntX();
         UIntX(uint64_t);
         template <uint32_t OtherNumBits>
-        UIntX(UIntX<OtherNumBits> &);
+        UIntX(const UIntX<OtherNumBits> &);
 
         std::string toString() const;
         
@@ -41,8 +41,9 @@ class UIntX
         bool isLess(const UIntX<OtherNumBits> &) const;
 
         bool isOdd() const;
-        uint64_t getArrSize() const;
+        size_t getArrSize() const;
         uint64_t getElement(uint64_t) const;
+        void setElement(uint32_t, uint64_t);
 
     private:
         static const uint8_t BITS_PER_ELMT = 64;
@@ -62,7 +63,7 @@ UIntX<NumBits>::UIntX()
 }
 
 template<uint32_t NumBits>
-UIntX<NumBits>::UIntX(uint64_t num)
+UIntX<NumBits>::UIntX(const uint64_t num)
 {
     assert(NumBits >= BITS_PER_ELMT && is_pow_two(NumBits));
     data.fill(0);
@@ -71,8 +72,9 @@ UIntX<NumBits>::UIntX(uint64_t num)
 
 template<uint32_t NumBits>
 template <uint32_t OtherNumBits>
-UIntX<NumBits>::UIntX(UIntX<OtherNumBits> &other)
+UIntX<NumBits>::UIntX(const UIntX<OtherNumBits> &other)
 {
+    assert(NumBits >= BITS_PER_ELMT && is_pow_two(NumBits));
     data.fill(0);
     for (size_t i=0; i < std::min(data.size(), other.getArrSize()); i++)
     {
@@ -213,22 +215,27 @@ UIntX<NumBits> UIntX<NumBits>::divmod(const UIntX<OtherNumBits> &divisor, divmod
         for (int64_t i = data.size()-1; i>=0; i--)
         {
             cur = q.data[i] + carry * BASE;
-            q.data[i] = cur / BASE;
-            carry = cur % BASE;
+            q.data[i] = cur / divisor.getElement(0);
+            carry = cur % divisor.getElement(0);
         }
         r = carry;
     }
     else
     {
         const uint8_t SHFT_AMT = BITS_PER_ELMT / 2;
-        UIntX<NumBits> n;
 
         uint64_t msd = 0;
-        for (int64_t i = divisor.getArrSize()-1; i >= 0; i--)
+        for (int64_t i = divisor.getArrSize()-1; msd == 0 && i >= 0; i--)
         {
             msd = divisor.getElement(i);
         }
         msd = msd < BASE ? msd : msd >> SHFT_AMT;
+        q = *this;
+
+        while (r > divisor)
+        {
+            q = q.div(UIntX<NumBits>(msd), divide);
+        }
 
     }
 
@@ -308,15 +315,23 @@ bool UIntX<NumBits>::isOdd() const
 }
 
 template <uint32_t NumBits>
-uint64_t UIntX<NumBits>::getArrSize() const
+size_t UIntX<NumBits>::getArrSize() const
 {
     return data.size();
 }
 
 template <uint32_t NumBits>
-uint64_t UIntX<NumBits>::getElement(uint64_t i) const
+uint64_t UIntX<NumBits>::getElement(uint64_t index) const
 {
-    return data[i];
+    assert(index < data.size());
+    return data[index];
+}
+
+template <uint32_t NumBits>
+void UIntX<NumBits>::setElement(uint32_t index, uint64_t value)
+{
+    assert(index < data.size());
+    data[index] = value;
 }
 
 template <uint32_t NumBits>

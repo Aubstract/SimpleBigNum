@@ -5,8 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 include_directories(src)
 
 set(SOURCE_FILES
-    src/main.cpp
-    src/UIntX.h)
+        src/main.cpp
+        src/UIntX.h)
 
 add_executable(main ${SOURCE_FILES})
 
