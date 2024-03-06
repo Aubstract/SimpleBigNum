@@ -52,6 +52,8 @@ class UIntX
         enum DivModChoice { divide, modulo };
         template <uint32_t M>
         UIntX<N> divmod(const UIntX<M> &, DivModChoice) const;
+
+        uint32_t findMostSigDig() const;
         bool isPowTwo(uint64_t) const;
 };
 
@@ -226,14 +228,30 @@ UIntX<N> UIntX<N>::divmod(const UIntX<M> &divisor, DivModChoice choice) const
     }
     else
     {
-        uint64_t most_sig_digit = 0,
-                 curr = 0;
-        int64_t i = divisor.getArrSize()-1;
-        for (; curr == 0 && i >= 0; i--)
+        // TODO: Work on this. Maybe find different algorithm? not sure I like this one
+        uint64_t msd_index = divisor.findMostSigDig(),
+                 most_sig_digit = divisor.getElement(msd_index);
+        bool lower_digit = most_sig_digit < BASE;
+        most_sig_digit = lower_digit ? most_sig_digit : most_sig_digit >> SHIFT_AMT;
+        UIntX<M> new_dividend;
+
+        if (lower_digit)
         {
-            curr = divisor.getElement(i);
+            for (std::size_t i=0; msd_index + i < new_dividend.getArrSize(); i++)
+            {
+                new_dividend.setElement(i, data[msd_index + i]);
+            }
+            //new_dividend.setElement(msd_index, new_dividend.getElement(msd_index) & ~(BASE-1));
         }
-        most_sig_digit = curr < BASE ? curr : curr >> SHIFT_AMT;
+        else
+        {
+            for (std::size_t i=0; msd_index + i < new_dividend.getArrSize(); i++)
+            {
+                new_dividend.setElement(i, data[msd_index + i]);
+            }
+        }
+
+
         q = *this;
 
         while (r.isGreater(divisor))
@@ -331,15 +349,26 @@ std::size_t UIntX<N>::getArrSize() const
 template <uint32_t N>
 uint64_t UIntX<N>::getElement(uint64_t index) const
 {
-    assert(index < data.size());
+    //assert(index < data.size());
     return data[index];
 }
 
 template <uint32_t N>
 void UIntX<N>::setElement(uint32_t index, uint64_t value)
 {
-    assert(index < data.size());
+    //assert(index < data.size());
     data[index] = value;
+}
+
+template <uint32_t N>
+uint32_t UIntX<N>::findMostSigDig() const
+{
+    uint64_t curr = 0;
+    for (int64_t i = data.size()-1; curr == 0 && i >= 0; i--)
+    {
+        curr = data[i];
+    }
+    return curr;
 }
 
 template <uint32_t N>
