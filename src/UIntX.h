@@ -41,13 +41,13 @@ class UIntX
         bool isLess(const UIntX<OtherNumBits> &) const;
 
         bool isOdd() const;
-        size_t getArrSize() const;
+        std::size_t getArrSize() const;
         uint64_t getElement(uint64_t) const;
         void setElement(uint32_t, uint64_t);
 
     private:
-        static const uint8_t BITS_PER_ELMT = 64;
-        std::array<uint64_t, NumBits / BITS_PER_ELMT> data;
+        static const uint8_t BITS_PER_ELEMENT = 64;
+        std::array<uint64_t, NumBits/BITS_PER_ELEMENT> data;
 
         enum divmodChoice { divide, modulo };
         template <uint32_t OtherNumBits>
@@ -58,14 +58,14 @@ class UIntX
 template<uint32_t NumBits>
 UIntX<NumBits>::UIntX()
 {
-    assert(NumBits >= BITS_PER_ELMT && is_pow_two(NumBits));
+    assert(NumBits >= BITS_PER_ELEMENT && is_pow_two(NumBits));
     data.fill(0);
 }
 
 template<uint32_t NumBits>
 UIntX<NumBits>::UIntX(const uint64_t num)
 {
-    assert(NumBits >= BITS_PER_ELMT && is_pow_two(NumBits));
+    assert(NumBits >= BITS_PER_ELEMENT && is_pow_two(NumBits));
     data.fill(0);
     data[0] = num;
 }
@@ -74,9 +74,9 @@ template<uint32_t NumBits>
 template <uint32_t OtherNumBits>
 UIntX<NumBits>::UIntX(const UIntX<OtherNumBits> &other)
 {
-    assert(NumBits >= BITS_PER_ELMT && is_pow_two(NumBits));
+    assert(NumBits >= BITS_PER_ELEMENT && is_pow_two(NumBits));
     data.fill(0);
-    for (size_t i=0; i < std::min(data.size(), other.getArrSize()); i++)
+    for (std::size_t i=0; i < std::min(data.size(), other.getArrSize()); i++)
     {
         data[i] = other.getElement(i);
     }
@@ -99,7 +99,7 @@ UIntX<NumBits> UIntX<NumBits>::add(const UIntX<OtherNumBits> &other) const
     uint64_t diff_from_max;
     uint64_t minArrSize = std::min(data.size(), other.getArrSize());
 
-    size_t i = 0;
+    std::size_t i = 0;
     for (; i < minArrSize; i++)
     {
         carryIn = carryOut;
@@ -125,7 +125,7 @@ UIntX<NumBits> UIntX<NumBits>::sub(const UIntX<OtherNumBits> &other) const
     bool carryIn, carryOut = false;
     uint64_t minArrSize = std::min(data.size(), other.getArrSize());
 
-    size_t i = 0;
+    std::size_t i = 0;
     for (; i < minArrSize; i++)
     {
         carryIn = carryOut;
@@ -145,7 +145,7 @@ template<uint32_t NumBits>
 template <uint32_t OtherNumBits>
 UIntX<NumBits> UIntX<NumBits>::mult(const UIntX<OtherNumBits> &other) const
 {
-    const uint8_t SHFT_AMT = BITS_PER_ELMT / 2;
+    const uint8_t SHFT_AMT = BITS_PER_ELEMENT / 2;
     const uint64_t BASE = uint64_t(1) << SHFT_AMT; // BASE == 2^SHFT_AMT
 
     UIntX<NumBits> a; // accumulator
@@ -202,7 +202,7 @@ UIntX<NumBits> UIntX<NumBits>::divmod(const UIntX<OtherNumBits> &divisor, divmod
         q = 0;
         r = 0;
     }
-    if (this->isLess(divisor))
+    if (divisor.isGreater(*this))
     {
         q = 0;
         r = divisor;
@@ -222,19 +222,21 @@ UIntX<NumBits> UIntX<NumBits>::divmod(const UIntX<OtherNumBits> &divisor, divmod
     }
     else
     {
-        const uint8_t SHFT_AMT = BITS_PER_ELMT / 2;
+        const uint8_t SHFT_AMT = BITS_PER_ELEMENT / 2;
 
-        uint64_t msd = 0;
-        for (int64_t i = divisor.getArrSize()-1; msd == 0 && i >= 0; i--)
+        uint64_t most_sig_digit = 0,
+                 curr = 0;
+        int64_t i = divisor.getArrSize()-1;
+        for (; curr == 0 && i >= 0; i--)
         {
-            msd = divisor.getElement(i);
+            curr = divisor.getElement(i);
         }
-        msd = msd < BASE ? msd : msd >> SHFT_AMT;
+        most_sig_digit = curr < BASE ? curr : curr >> SHFT_AMT;
         q = *this;
 
-        while (r > divisor)
+        while (r.isGreater(divisor))
         {
-            q = q.div(UIntX<NumBits>(msd), divide);
+            q = q.divmod(UIntX<NumBits>(most_sig_digit), divide);
         }
 
     }
@@ -264,7 +266,7 @@ bool UIntX<NumBits>::isGreater(const UIntX<OtherNumBits> &other) const
 {
     if (data.size() > other.getArrSize())
     {
-        for (size_t i = data.size() - 1; i > other.getArrSize() - 1; i--)
+        for (std::size_t i = data.size() - 1; i >= other.getArrSize(); i--)
         {
             if (data[i] > 0)
             {
@@ -274,7 +276,7 @@ bool UIntX<NumBits>::isGreater(const UIntX<OtherNumBits> &other) const
     }
     else if (data.size() < other.getArrSize())
     {
-        for (size_t i = other.getArrSize() - 1; i > data.size() - 1; i--)
+        for (std::size_t i = other.getArrSize() - 1; i >= data.size(); i--)
         {
             if (other.getElement(i) > 0)
             {
@@ -285,7 +287,11 @@ bool UIntX<NumBits>::isGreater(const UIntX<OtherNumBits> &other) const
 
     for (int64_t i = std::min(data.size(), other.getArrSize()) - 1; i >= 0; i--)
     {
-        if (data[i] > other.getElement(i))
+        if (data[i] < other.getElement(i))
+        {
+            return false;
+        }
+        else if (data[i] > other.getElement(i))
         {
             return true;
         }
@@ -315,7 +321,7 @@ bool UIntX<NumBits>::isOdd() const
 }
 
 template <uint32_t NumBits>
-size_t UIntX<NumBits>::getArrSize() const
+std::size_t UIntX<NumBits>::getArrSize() const
 {
     return data.size();
 }

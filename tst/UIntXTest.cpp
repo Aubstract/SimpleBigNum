@@ -37,6 +37,12 @@ TEST(UIntX, isGreater)
     EXPECT_EQ(testA.isGreater(testB), false);
     testB = 0;
     EXPECT_EQ(testA.isGreater(testB), true);
+
+    testA = 0;
+    testB = 0;
+    testA.setElement(0, 1);
+    testB.setElement(1, 1);
+    EXPECT_EQ(testB.isGreater(testA), true);
 }
 
 TEST(UIntX, isEqual)
@@ -148,4 +154,26 @@ TEST(UIntX, mult)
     EXPECT_EQ(testC.getElement(1), 2);
     EXPECT_EQ(testC.getElement(2), UINT64_MAX-2);
     EXPECT_EQ(testC.getElement(3), 0);
+}
+
+TEST(UIntX, div)
+{
+    UIntX<128> testA = 100;
+    UIntX<128> testB = 12;
+    testA = testA.div(testB);
+    EXPECT_EQ(testA.getElement(0), 8);
+
+    testA = UINT64_MAX;
+    testB = UINT32_MAX;
+    testA = testA.div(testB);
+    EXPECT_EQ(testA.getElement(0), 4'294'967'297);
+
+    testA = UINT64_MAX;
+    testA = testA.mult(testA); // 79,228,162,532,711,081,662,958,534,655 // 79228162532711081662958534655
+    // 1000000000000000000000000000000001111111111111111111111111111111011111111111111111111111111111111
+    testB = 333'333'333;
+
+    testA = testA.div(testB); // 1,020,847,101,783,662,492,063,105,849,916 // 1020847101783662492063105849916 // 1100111000101000100011101110010101000111100000001000111111000111011101010110111011001001101000111100
+    EXPECT_EQ(testA.getElement(0), 8649440673854691900);
+    EXPECT_EQ(testA.getElement(1), 55340232276);
 }
