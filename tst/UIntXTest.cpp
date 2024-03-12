@@ -12,16 +12,15 @@ TEST(UIntX, Construct)
     EXPECT_DEATH(UIntX<129> test, "");
     EXPECT_DEATH(UIntX<1233> test, "");
 
-    EXPECT_NO_THROW(UIntX<64> test);
-    EXPECT_NO_THROW(UIntX<64> testA;
-                    UIntX<64> testB = testA);
     EXPECT_NO_THROW(UIntX<128> test);
+    EXPECT_NO_THROW(UIntX<128> testA;
+                    UIntX<128> testB = testA);
     EXPECT_NO_THROW(UIntX<256> test);
     EXPECT_NO_THROW(UIntX<512> test);
     EXPECT_NO_THROW(UIntX<1024> test);
     EXPECT_NO_THROW(UIntX<16384> test);
 
-    EXPECT_NO_THROW(UIntX<64> test(55));
+    EXPECT_NO_THROW(UIntX<128> test(55));
     EXPECT_NO_THROW(UIntX<256> test(123123));
     EXPECT_NO_THROW(UIntX<128> test(44444444));
 }
@@ -86,7 +85,7 @@ TEST(UIntX, add)
     EXPECT_EQ(testA.getElement(1), 1);
 
     testA = UINT64_MAX;
-    UIntX<64> testC = 1;
+    UIntX<128> testC = 1;
     testA = testA.add(testC);
     EXPECT_EQ(testA.getElement(0), 0);
     EXPECT_EQ(testA.getElement(1), 1);

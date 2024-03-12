@@ -26,12 +26,15 @@ class UIntX
         template <uint32_t M>
         UIntX<N> sub(const UIntX<M> &) const;
         template <uint32_t M>
-        UIntX<N> mult(const UIntX<M> &) const;
+        UIntX<N*2> mult(const UIntX<M> &) const;
         template <uint32_t M>
         UIntX<N> div(const UIntX<M> &) const;
         template <uint32_t M>
         UIntX<N> mod(const UIntX<M> &) const;
         UIntX<N> sqrt() const;
+
+        UIntX<N> rightShift(uint32_t) const;
+        UIntX<N> leftShift(uint32_t) const;
 
         template <uint32_t M>
         bool isGreater(const UIntX<M> &) const;
@@ -39,8 +42,14 @@ class UIntX
         bool isEqual(const UIntX<M> &) const;
         template <uint32_t M>
         bool isLess(const UIntX<M> &) const;
-
+        template <uint32_t M>
+        bool isGreaterOrEqual(const UIntX<M> &) const;
+        template <uint32_t M>
+        bool isLessOrEqual(const UIntX<M> &) const;
+        template <uint32_t M>
+        bool isNotEqual(const UIntX<M> &) const;
         bool isOdd() const;
+        
         std::size_t getArrSize() const;
         uint64_t getElement(uint64_t) const;
         void setElement(uint32_t, uint64_t);
@@ -49,25 +58,21 @@ class UIntX
         static const uint8_t BITS_PER_ELEMENT = 64;
         std::array<uint64_t, N / BITS_PER_ELEMENT> data;
 
-        enum DivModChoice { divide, modulo };
-        template <uint32_t M>
-        UIntX<N> divmod(const UIntX<M> &, DivModChoice) const;
-
-        uint32_t findMostSigDig() const;
+        uint8_t getHighestEightBits() const;
         bool isPowTwo(uint64_t) const;
 };
 
 template<uint32_t N>
 UIntX<N>::UIntX()
 {
-    assert(N >= BITS_PER_ELEMENT && isPowTwo(N));
+    assert(N >= BITS_PER_ELEMENT*2 && isPowTwo(N));
     data.fill(0);
 }
 
 template<uint32_t N>
 UIntX<N>::UIntX(const uint64_t num)
 {
-    assert(N >= BITS_PER_ELEMENT && isPowTwo(N));
+    assert(N >= BITS_PER_ELEMENT*2 && isPowTwo(N));
     data.fill(0);
     data[0] = num;
 }
@@ -76,7 +81,7 @@ template<uint32_t N>
 template <uint32_t M>
 UIntX<N>::UIntX(const UIntX<M> &other)
 {
-    assert(N >= BITS_PER_ELEMENT && isPowTwo(N));
+    assert(N >= BITS_PER_ELEMENT*2 && isPowTwo(N));
     data.fill(0);
     for (std::size_t i=0; i < std::min(data.size(), other.getArrSize()); i++)
     {
@@ -99,7 +104,7 @@ UIntX<N> UIntX<N>::add(const UIntX<M> &other) const
     UIntX<N> sum;
     bool carry_in, carry_out = false;
     uint64_t diff_from_max;
-    uint64_t min_arr_size = std::min(data.size(), other.getArrSize());
+    const uint64_t min_arr_size = std::min(data.size(), other.getArrSize());
 
     std::size_t i = 0;
     for (; i < min_arr_size; i++)
@@ -125,7 +130,7 @@ UIntX<N> UIntX<N>::sub(const UIntX<M> &other) const
 {
     UIntX<N> diff;
     bool carry_in, carry_out = false;
-    uint64_t min_arr_size = std::min(data.size(), other.getArrSize());
+    const uint64_t min_arr_size = std::min(data.size(), other.getArrSize());
 
     std::size_t i = 0;
     for (; i < min_arr_size; i++)
@@ -145,12 +150,12 @@ UIntX<N> UIntX<N>::sub(const UIntX<M> &other) const
 
 template<uint32_t N>
 template <uint32_t M>
-UIntX<N> UIntX<N>::mult(const UIntX<M> &other) const
+UIntX<N*2> UIntX<N>::mult(const UIntX<M> &other) const
 {
     const uint8_t SHIFT_AMT = BITS_PER_ELEMENT / 2;
     const uint64_t BASE = uint64_t(1) << SHIFT_AMT; // BASE == 2^SHIFT_AMT
 
-    UIntX<N> a; // accumulator
+    UIntX<N*2> a; // accumulator
     uint64_t carry = 0,
              this_data_temp,
              other_data_temp,
@@ -159,18 +164,15 @@ UIntX<N> UIntX<N>::mult(const UIntX<M> &other) const
 
     for (uint64_t i=0; i < data.size() * 2; i++)
     {
-        for (uint64_t j=0; j < other.data.size() * 2; j++)
+        for (uint64_t j=0; j < other.getArrSize() * 2; j++)
         {
-            if ((i+j) < a.data.size()*2)
-            {
-                this_data_temp = i%2 ? data[i/2] >> SHIFT_AMT : data[i/2] & BASE-1;
-                other_data_temp = j%2 ? other.data[j/2] >> SHIFT_AMT : other.data[j/2] & BASE-1;
-                a_data_temp = (i+j)%2 ? a.data[(i+j)/2] >> SHIFT_AMT : a.data[(i+j)/2] & BASE-1;
+            this_data_temp = i%2 ? data[i/2] >> SHIFT_AMT : data[i/2] & BASE-1;
+            other_data_temp = j%2 ? other.getElement(j/2) >> SHIFT_AMT : other.getElement(j/2) & BASE-1;
+            a_data_temp = (i+j)%2 ? a.getElement((i+j)/2) >> SHIFT_AMT : a.getElement((i+j)/2) & BASE-1;
 
-                cur = this_data_temp * other_data_temp + carry;
-                a.data[(i+j)/2] += (i+j)%2 ? cur%BASE << SHIFT_AMT : cur%BASE;
-                carry = (cur + a_data_temp) / BASE;
-            }
+            cur = this_data_temp * other_data_temp + carry;
+            a.setElement((i+j)/2, a.getElement((i+j)/2) + ((i+j)%2 ? cur%BASE << SHIFT_AMT : cur%BASE));
+            carry = (cur + a_data_temp) / BASE;
         }
     }
 
@@ -179,96 +181,55 @@ UIntX<N> UIntX<N>::mult(const UIntX<M> &other) const
 
 template<uint32_t N>
 template <uint32_t M>
-UIntX<N> UIntX<N>::div(const UIntX<M> &other) const
+UIntX<N> UIntX<N>::div(const UIntX<M> &divisor) const
 {
-    return this->divmod(other, divide);
+    assert(divisor.isNotEqual(UIntX<M>(0))); // divide by zero is undefined
+
+    UIntX<N> q;
+
+    if (this->isEqual(UIntX<N>(0)))
+    {
+        q = 0;
+    }
+    if (divisor.isGreater(*this))
+    {
+        q = 0;
+    }
+    else
+    {
+        const uint32_t MAX_ITER = 32;
+        UIntX<N*2> reciprocal_guess = this->mult(UIntX<N>(2)).sub(divisor).leftShift(128);
+
+        for (uint32_t i=0; i < MAX_ITER; i++)
+        {
+            reciprocal_guess = reciprocal_guess.sub(reciprocal_guess.mult(UIntX<N>(2).mult(*this).mult(reciprocal_guess)));
+
+            if (UIntX<N*2>(1).sub(UIntX<N*2>(divisor).mult(reciprocal_guess)).isLess(UIntX<N*2>(32)))
+            {
+                return this->mult(reciprocal_guess);
+            }
+        }
+
+        return this->mult(reciprocal_guess).rightShift(128);
+    }
+
+
+    return q;
 }
 
 template<uint32_t N>
 template <uint32_t M>
 UIntX<N> UIntX<N>::mod(const UIntX<M> &other) const
 {
-    return this->divmod(other, modulo);
-}
-
-template<uint32_t N>
-template <uint32_t M>
-UIntX<N> UIntX<N>::divmod(const UIntX<M> &divisor, DivModChoice choice) const
-{
-    // *this / divisor = q, r
-
-    static const uint8_t SHIFT_AMT = BITS_PER_ELEMENT / 2;
-    static const uint64_t BASE = uint64_t(1) << 32; // BASE == 2^32
-    UIntX<N> q, r;
-
-    if (divisor.isEqual(UIntX<N>(0)) || this->isEqual(UIntX<N>(0)))
+    if (this->isEqual(UIntX<N>(0)))
     {
-        q = 0;
-        r = 0;
-    }
-    if (divisor.isGreater(*this))
-    {
-        q = 0;
-        r = divisor;
-    }
-    else if (divisor.isLess(UIntX<N>(BASE)))
-    {
-        uint64_t cur,
-                 carry = 0,
-                 q_data_temp;
-
-        for (int64_t i = (data.size()*2)-1; i>=0; i--)
-        {
-            q_data_temp = i%2 ? data[i/2] >> SHIFT_AMT : data[i/2] & BASE-1;
-            cur = q_data_temp + carry * BASE;
-            q.data[i/2] |= i%2 ? (cur/divisor.getElement(0)) << SHIFT_AMT : (cur/divisor.getElement(0)) & BASE-1;
-            carry = cur % divisor.getElement(0);
-        }
-        r = carry;
+        // 0 % n == 0
+        return UIntX<N>(0);
     }
     else
     {
-        // TODO: Work on this. Maybe find different algorithm? not sure I like this one
-        uint64_t msd_index = divisor.findMostSigDig(),
-                 most_sig_digit = divisor.getElement(msd_index);
-        bool lower_digit = most_sig_digit < BASE;
-        most_sig_digit = lower_digit ? most_sig_digit : most_sig_digit >> SHIFT_AMT;
-        UIntX<M> new_dividend;
-
-        if (lower_digit)
-        {
-            for (std::size_t i=0; msd_index + i < new_dividend.getArrSize(); i++)
-            {
-                new_dividend.setElement(i, data[msd_index + i]);
-            }
-            //new_dividend.setElement(msd_index, new_dividend.getElement(msd_index) & ~(BASE-1));
-        }
-        else
-        {
-            for (std::size_t i=0; msd_index + i < new_dividend.getArrSize(); i++)
-            {
-                new_dividend.setElement(i, data[msd_index + i]);
-            }
-        }
-
-
-        q = *this;
-
-        while (r.isGreater(divisor))
-        {
-            q = q.divmod(UIntX<N>(most_sig_digit), divide);
-        }
-
-    }
-
-    switch (choice)
-    {
-        case divide:
-            return q;
-        case modulo:
-            return r;
-        default:
-            return 0;
+        // modulus == dividend - (quotient * divisor)
+        return UIntX<N*2>(*this).sub(this->div(other).mult(other));
     }
 }
 
@@ -279,6 +240,60 @@ UIntX<N> UIntX<N>::sqrt() const
 
 }
 */
+
+template<uint32_t N>
+UIntX<N> UIntX<N>::rightShift(uint32_t shift_amt) const
+{
+    UIntX<N> shifted = 0;
+
+    if (shift_amt == 0)
+    {
+        shifted = *this;
+    }
+    else if (shift_amt < N)
+    {
+        const uint32_t element_shift = shift_amt / BITS_PER_ELEMENT,
+                       bit_shift = shift_amt % BITS_PER_ELEMENT;
+        const uint64_t bit_mask = ~(~uint64_t(0) << bit_shift);
+
+        for (uint32_t i=0; i < data.size() - element_shift; i++)
+        {
+            shifted.data[i] = data[i + element_shift] >> bit_shift;
+            if (i + 1 + element_shift < data.size())
+            {
+                shifted.data[i] |= (data[i + 1 + element_shift] & bit_mask) << (BITS_PER_ELEMENT - bit_shift);
+            }
+        }
+    }
+    return shifted;
+}
+
+template<uint32_t N>
+UIntX<N> UIntX<N>::leftShift(uint32_t shift_amt) const
+{
+    UIntX<N> shifted = 0;
+
+    if (shift_amt == 0)
+    {
+        shifted = *this;
+    }
+    else if (shift_amt < N)
+    {
+        const uint32_t element_shift = shift_amt / BITS_PER_ELEMENT,
+                       bit_shift = shift_amt % BITS_PER_ELEMENT;
+        const uint64_t bit_mask = ~(~uint64_t(0) >> bit_shift);
+
+        for (int64_t i = data.size(); i > element_shift; i--)
+        {
+            shifted.data[i - 1] = data[i - 1 - element_shift] << bit_shift;
+            if (i - 1 - element_shift > 0)
+            {
+                shifted.data[i - 1] |= (data[i - 2 - element_shift] & bit_mask) >> (BITS_PER_ELEMENT - bit_shift);
+            }
+        }
+    }
+    return shifted;
+}
 
 template<uint32_t N>
 template <uint32_t M>
@@ -334,6 +349,27 @@ bool UIntX<N>::isLess(const UIntX<M> &other) const
     return other.isGreater(*this);
 }
 
+template<uint32_t N>
+template <uint32_t M>
+bool UIntX<N>::isGreaterOrEqual(const UIntX<M> &other) const
+{
+    return (this->isGreater(other) || this->isEqual(other));
+}
+
+template<uint32_t N>
+template <uint32_t M>
+bool UIntX<N>::isLessOrEqual(const UIntX<M> &other) const
+{
+    return (this->isLess(other) || this->isEqual(other));
+}
+
+template<uint32_t N>
+template <uint32_t M>
+bool UIntX<N>::isNotEqual(const UIntX<M> &other) const
+{
+    return !(this->isEqual(other));
+}
+
 template <uint32_t N>
 bool UIntX<N>::isOdd() const
 {
@@ -349,6 +385,7 @@ std::size_t UIntX<N>::getArrSize() const
 template <uint32_t N>
 uint64_t UIntX<N>::getElement(uint64_t index) const
 {
+    // Debug:
     //assert(index < data.size());
     return data[index];
 }
@@ -356,19 +393,37 @@ uint64_t UIntX<N>::getElement(uint64_t index) const
 template <uint32_t N>
 void UIntX<N>::setElement(uint32_t index, uint64_t value)
 {
+    // Debug:
     //assert(index < data.size());
     data[index] = value;
 }
 
 template <uint32_t N>
-uint32_t UIntX<N>::findMostSigDig() const
+uint8_t UIntX<N>::getHighestEightBits() const
 {
-    uint64_t curr = 0;
-    for (int64_t i = data.size()-1; curr == 0 && i >= 0; i--)
+    // Find index of highest bit
+    uint8_t eight_bits = 0;
+    int64_t index = BITS_PER_ELEMENT * (data.size() - 1);
+    uint64_t bitmask = uint64_t(1) << (BITS_PER_ELEMENT - 1);
+
+    for (; index >= 0 && !(bitmask & data[index/BITS_PER_ELEMENT]); index--)
     {
-        curr = data[i];
+        bitmask = bitmask == 1 ? uint64_t(1) << (BITS_PER_ELEMENT - 1) : bitmask >>= 1;
     }
-    return curr;
+
+    // Construct byte based on index
+    if (index >= 0)
+    {
+        bitmask = (bitmask << 1) - 1;
+        eight_bits = data[index/BITS_PER_ELEMENT];
+
+        if (index % BITS_PER_ELEMENT < 8)
+        {
+
+        }
+    }
+
+    return eight_bits;
 }
 
 template <uint32_t N>
