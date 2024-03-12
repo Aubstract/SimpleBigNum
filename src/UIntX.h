@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <string>
 
+#define DEBUG
+
 template<uint32_t N>
 class UIntX
 {
@@ -49,7 +51,7 @@ class UIntX
         template <uint32_t M>
         bool isNotEqual(const UIntX<M> &) const;
         bool isOdd() const;
-        
+
         std::size_t getArrSize() const;
         uint64_t getElement(uint64_t) const;
         void setElement(uint32_t, uint64_t);
@@ -58,7 +60,11 @@ class UIntX
         static const uint8_t BITS_PER_ELEMENT = 64;
         std::array<uint64_t, N / BITS_PER_ELEMENT> data;
 
-        uint8_t getHighestEightBits() const;
+        int64_t getHighestBitIndex() const;
+        uint8_t getByte(int64_t) const;
+        uint8_t getNibble(uint32_t) const;
+        void setNibble(uint32_t, uint8_t);
+
         bool isPowTwo(uint64_t) const;
 };
 
@@ -155,24 +161,27 @@ UIntX<N*2> UIntX<N>::mult(const UIntX<M> &other) const
     const uint8_t SHIFT_AMT = BITS_PER_ELEMENT / 2;
     const uint64_t BASE = uint64_t(1) << SHIFT_AMT; // BASE == 2^SHIFT_AMT
 
-    UIntX<N*2> a; // accumulator
+    UIntX<N*2> a; // accumulator, init to 0
     uint64_t carry = 0,
              this_data_temp,
              other_data_temp,
              a_data_temp,
              cur;
 
-    for (uint64_t i=0; i < data.size() * 2; i++)
+    if (this->isNotEqual(UIntX<N>(0)) && other.isNotEqual(UIntX<N>(0)))
     {
-        for (uint64_t j=0; j < other.getArrSize() * 2; j++)
+        for (uint64_t i=0; i < data.size() * 2; i++)
         {
-            this_data_temp = i%2 ? data[i/2] >> SHIFT_AMT : data[i/2] & BASE-1;
-            other_data_temp = j%2 ? other.getElement(j/2) >> SHIFT_AMT : other.getElement(j/2) & BASE-1;
-            a_data_temp = (i+j)%2 ? a.getElement((i+j)/2) >> SHIFT_AMT : a.getElement((i+j)/2) & BASE-1;
+            for (uint64_t j=0; j < other.getArrSize() * 2; j++)
+            {
+                this_data_temp = i%2 ? data[i/2] >> SHIFT_AMT : data[i/2] & BASE-1;
+                other_data_temp = j%2 ? other.getElement(j/2) >> SHIFT_AMT : other.getElement(j/2) & BASE-1;
+                a_data_temp = (i+j)%2 ? a.getElement((i+j)/2) >> SHIFT_AMT : a.getElement((i+j)/2) & BASE-1;
 
-            cur = this_data_temp * other_data_temp + carry;
-            a.setElement((i+j)/2, a.getElement((i+j)/2) + ((i+j)%2 ? cur%BASE << SHIFT_AMT : cur%BASE));
-            carry = (cur + a_data_temp) / BASE;
+                cur = this_data_temp * other_data_temp + carry;
+                a.setElement((i+j)/2, a.getElement((i+j)/2) + ((i+j)%2 ? cur%BASE << SHIFT_AMT : cur%BASE));
+                carry = (cur + a_data_temp) / BASE;
+            }
         }
     }
 
@@ -385,24 +394,24 @@ std::size_t UIntX<N>::getArrSize() const
 template <uint32_t N>
 uint64_t UIntX<N>::getElement(uint64_t index) const
 {
-    // Debug:
-    //assert(index < data.size());
+#ifdef DEBUG
+    assert(index < data.size());
+#endif
     return data[index];
 }
 
 template <uint32_t N>
 void UIntX<N>::setElement(uint32_t index, uint64_t value)
 {
-    // Debug:
-    //assert(index < data.size());
+#ifdef DEBUG
+    assert(index < data.size());
+#endif
     data[index] = value;
 }
 
 template <uint32_t N>
-uint8_t UIntX<N>::getHighestEightBits() const
+int64_t UIntX<N>::getHighestBitIndex() const
 {
-    // Find index of highest bit
-    uint8_t eight_bits = 0;
     int64_t index = BITS_PER_ELEMENT * (data.size() - 1);
     uint64_t bitmask = uint64_t(1) << (BITS_PER_ELEMENT - 1);
 
@@ -411,19 +420,46 @@ uint8_t UIntX<N>::getHighestEightBits() const
         bitmask = bitmask == 1 ? uint64_t(1) << (BITS_PER_ELEMENT - 1) : bitmask >>= 1;
     }
 
-    // Construct byte based on index
+    return index;
+}
+
+template <uint32_t N>
+uint8_t UIntX<N>::getByte(int64_t index) const
+{
+#ifdef DEBUG
+    assert(index >= 0);
+#endif
+
+    uint8_t eight_bits = 0;
+    uint64_t bitmask = UINT8_MAX;
+
     if (index >= 0)
     {
-        bitmask = (bitmask << 1) - 1;
-        eight_bits = data[index/BITS_PER_ELEMENT];
-
         if (index % BITS_PER_ELEMENT < 8)
         {
-
+            bitmask >>= index%BITS_PER_ELEMENT;
         }
+        else
+        {
+            bitmask <<= index%BITS_PER_ELEMENT;
+        }
+
+        eight_bits = data[index/BITS_PER_ELEMENT] & bitmask;
     }
 
     return eight_bits;
+}
+
+template <uint32_t N>
+uint8_t UIntX<N>::getNibble(uint32_t) const
+{
+
+}
+
+template <uint32_t N>
+void UIntX<N>::setNibble(uint32_t, uint8_t)
+{
+    
 }
 
 template <uint32_t N>

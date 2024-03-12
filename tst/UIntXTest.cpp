@@ -25,51 +25,6 @@ TEST(UIntX, Construct)
     EXPECT_NO_THROW(UIntX<128> test(44444444));
 }
 
-TEST(UIntX, isGreater)
-{
-    UIntX<128> testA;
-    UIntX<128> testB(0);
-    testA = 1;
-    testB = 1;
-    EXPECT_EQ(testA.isGreater(testB), false);
-    testB = 2;
-    EXPECT_EQ(testA.isGreater(testB), false);
-    testB = 0;
-    EXPECT_EQ(testA.isGreater(testB), true);
-
-    testA = 0;
-    testB = 0;
-    testA.setElement(0, 1);
-    testB.setElement(1, 1);
-    EXPECT_EQ(testB.isGreater(testA), true);
-}
-
-TEST(UIntX, isEqual)
-{
-    UIntX<128> testA;
-    UIntX<128> testB(0);
-    testA = 1;
-    testB = 1;
-    EXPECT_EQ(testA.isEqual(testB), true);
-    testB = 2;
-    EXPECT_EQ(testA.isEqual(testB), false);
-    testB = 0;
-    EXPECT_EQ(testA.isEqual(testB), false);
-}
-
-TEST(UIntX, isLess)
-{
-    UIntX<128> testA;
-    UIntX<128> testB(0);
-    testA = 1;
-    testB = 1;
-    EXPECT_EQ(testA.isLess(testB), false);
-    testB = 2;
-    EXPECT_EQ(testA.isLess(testB), true);
-    testB = 0;
-    EXPECT_EQ(testA.isLess(testB), false);
-}
-
 TEST(UIntX, add)
 {
     UIntX<128> testA = 25;
@@ -174,4 +129,59 @@ TEST(UIntX, div)
     testA = testA.div(testB); // 1020847101783662492063105849916
     EXPECT_EQ(testA.getElement(0), 8649440673854691900);
     EXPECT_EQ(testA.getElement(1), 55340232276);
+}
+
+TEST(UIntX, rightShift)
+{
+
+}
+
+TEST(UIntX, leftShift)
+{
+
+}
+
+TEST(UIntX, isGreater)
+{
+    UIntX<128> testA;
+    UIntX<128> testB(0);
+    testA = 1;
+    testB = 1;
+    EXPECT_EQ(testA.isGreater(testB), false);
+    testB = 2;
+    EXPECT_EQ(testA.isGreater(testB), false);
+    testB = 0;
+    EXPECT_EQ(testA.isGreater(testB), true);
+
+    testA = 0;
+    testB = 0;
+    testA.setElement(0, 1);
+    testB.setElement(1, 1);
+    EXPECT_EQ(testB.isGreater(testA), true);
+}
+
+TEST(UIntX, isEqual)
+{
+    UIntX<128> testA;
+    UIntX<128> testB(0);
+    testA = 1;
+    testB = 1;
+    EXPECT_EQ(testA.isEqual(testB), true);
+    testB = 2;
+    EXPECT_EQ(testA.isEqual(testB), false);
+    testB = 0;
+    EXPECT_EQ(testA.isEqual(testB), false);
+}
+
+TEST(UIntX, isLess)
+{
+    UIntX<128> testA;
+    UIntX<128> testB(0);
+    testA = 1;
+    testB = 1;
+    EXPECT_EQ(testA.isLess(testB), false);
+    testB = 2;
+    EXPECT_EQ(testA.isLess(testB), true);
+    testB = 0;
+    EXPECT_EQ(testA.isLess(testB), false);
 }
